@@ -1,90 +1,57 @@
 #include <iostream>
-#include <fstream>
+#include <vector>
+#include <iterator>
+#include <cmath>
 #include <iomanip>
-#include <cmath>/*fabs()*/
-
+#include <cstdlib>
 using namespace std;
 
+typedef vector<double> doubleVec;
 
-//global variables
-const int n = 3; //rows
-const int m = n+1; //columns
+int n = 3; //number of rows
 
-void inputMatrixRows(double(&mat)[n][m])
+void printZeroes(int i)
 {
-	for (int i = 0; i < n; i++)
+	int temp = 0;
+	while (temp < i)
 	{
-		for (int j = 0; j < m; j++)
+		cout << 0 << ' ';
+		temp++;
+	}
+}
+
+//Prints a three band matrix of size nxn
+void printMatrix(const doubleVec& U, const doubleVec& L, const doubleVec& D, const doubleVec& b)
+{
+	for (int i = 0; i < n ; i++)
+	{
+		if (i > 1) //when to start printing 0s below diagonal
+			printZeroes(i-1); //prints 0s before the three bands in A
+
+		if (i == 0) //prints first row
 		{
-			cin >> mat[i][j];
+			cout << D[i] <<U[i]<<' ';			
 		}
-	}
-}
-
-void inputMatrixColumns(double(&mat)[n][m])
-{
-	for (int i = 0; i < m; i++)
-	{
-		for (int j = 0; j < n; j++)
+		else if (i == 1) //prints second row
 		{
-			cin >> mat[j][i];
+			cout << L[i-1] << D[i] << U[i]<<' ';
 		}
-	}
-}
-
-//print nxm matrix
-void printMatrix(double(&mat)[n][m])
-{
-	cout << setprecision(1) << fixed;
-	for (int i = 0; i<n; i++)    //This loops on the rows
-	{
-		for (int j = 0; j<m; j++) //This loops on the columns
+		else if (i>1 && i < n - 1) //prints rows 3->n-1
 		{
-			cout << mat[i][j] << "  "; //prints a row
+			cout << L[i-1] << D[i] << U[i]<<' ';
 		}
-		cout << endl;
-	}
-}
-
-//prints nxn matrix
-void printMatrix(double(&mat)[n][n])
-{
-	cout << setprecision(1) << fixed;
-	for (int i = 0; i<n; i++)    //This loops on the rows
-	{
-		for (int j = 0; j<m; j++) //This loops on the columns
+		else if (i >= n - 1) //prints the last row n
 		{
-			cout << mat[i][j] << "  "; //prints a row
+			cout << L[i - 1] << D[i] << ' ';
 		}
-		cout << endl;
+
+		printZeroes(n - 2 - i); //prints 0s after the three bands in A
+		cout << b[i] << endl; //prints b[i] after every row of A
 	}
 }
 
-void swapRows(double (&mat)[n][m], int rowBelow, int rowOnTop)
-{
-	double temp;
-	for (int c = 0; c < m; c++)
-	{
-		temp = mat[rowBelow][c];
-		mat[rowBelow][c] = mat[rowOnTop][c];
-		mat[rowOnTop][c] = temp;
-	}
-}
-
-void extractAb(double (&mat)[n][m], double (&A)[n][n], double *b)
-{
-	//Extract A and b from augmented matrix
-	for (int i = 0; i < n; i++)
-	{
-		for (int j = 0; j < n; j++) //A is nxn matrix
-		{
-			A[i][j] = mat[i][j];
-		}
-		b[i] = mat[i][m-1]; //gets values(b) in last column of augmented matrix
-	}
-}
-
-void inputDLU(double matrix[n][m],double d_val, double l_val, double u_val)
+/*
+void inputDLU(vector<double> &D, vector<double> &L, vector<double> &U, double d_val, double l_val, double u_val)
 {
 	for (int i = 0; i < n; i++)
 	{
@@ -100,189 +67,140 @@ void inputDLU(double matrix[n][m],double d_val, double l_val, double u_val)
 				matrix[i][j] = 0;
 		}//inner for
 
-		/*
 		if (i % 2 == 0)
 			matrix[i][m - 1] = 1;
 		else
 			matrix[i][m - 1] = 0;
-		*/
-		if (i < n / 2)
-			matrix[i][m-1] = 1;
-		else
-			matrix[i][m-1] = 0;
 	}//outer for
+}
+*/
+
+void outputSolution(const doubleVec& x)
+{
+	//output
+	cout << "solution:" << endl;
+	for (auto i = x.begin(); i != x.end(); i++)
+	{
+		//i is of type iterator 
+		cout << "x" << i - x.begin() << ": " << *i << endl;
+	}
+}
+
+void findAx(doubleVec& Ax,const doubleVec& x,const doubleVec& D,const doubleVec& L,const doubleVec& U)
+{
+	Ax = vector < double >(n, 0.0); //reinitialize to an empty vector
+	//find the value of diagonally dominant Ax per every iterative of x
+	for (auto itr = Ax.begin(); itr != Ax.end(); itr++)
+	{
+		//auto position = distance(itr, Ax.begin());
+		auto position = itr - Ax.begin(); //returns position in Ax
+
+		if (position == 0)
+			Ax[position] += x[position] * D[position] + x[1] * U[position];
+		else if (position > 0 && position < n - 1)//middle rows
+			Ax[position] += x[position - 1] * L[position - 1] + x[position] * D[position] + x[position + 1] * U[position];
+		else
+			Ax[position] += x[position - 1] * L[position - 1] + x[position] * D[position];
+
+		//	cout << "AX" << position<<": "<<*itr << endl;
+	}
 }
 
 int main()
-{   
+{
 	
-	double matrix[n][m];
-//	inputMatrixColumns(matrix);
-//	printMatrix(matrix);
-	// = { { 0, 1, 0, 1 }, { -1, 0, 0, 1 }, { 0, 0, 1, 1 } };
-	/*{{ 4, 1, 2, 9 },
-	 { 2, 4, -1, -5 },
-	 { 1, 1, -3, -9 } };
-	
-	 = { { 4, -1, 1, 8 },
-	    { 2, 5, 2, 3 },
-	    { 1, 2, 4, 11 } };
-	*/
-	
-	inputDLU(matrix,4, -1, -1); //matrix,D,L,U
-	/*
+	//The vectors U,L and D are used to form a three band diagonal matrix
+	vector<double> U(n-1,-1.0);
+	vector<double> L(n-1,-1.0); 
+	vector<double> D(n,4.0);
+	vector<double> b(n);
+	vector<double> xKnot(n,0.0);//will hold previous iteration approximation
+	vector<double> x(n, 0.0);//holds current iteration approximation
+	vector<double> Ax(n, 0.0); //Ax matrix initialized to 0
+	double tolerance = 0.0000000001;
+	cout << setprecision(10)<<fixed;
+	//input b vector
 	for (int i = 0; i < n; i++)
 	{
-		for (int j = 0; j < m; j++)
-		{
-			if (i == j) //diagonal values
-				matrix[i][j] = 2;
-			else if (j == i + 1 || j == i - 1) //off diagonal values
-				matrix[i][j] = -1;
-			else //all other matrix values
-				matrix[i][j] = 0;
-		}//inner for
-		if (i % 2 == 0)
-			matrix[i][m-1] = 1;
+		if (i < n / 2)
+			b[i] = 1.0;
 		else
-			matrix[i][m-1] = 0;
-	}//outer for
-	*/
-	printMatrix(matrix);
+			b[i] = 0.0;
+	}
+	printMatrix(U,L,D,b);
+
+	int k = 0;
+	double sum;
+	int N = 100000;
+
+	int tolCount = 0;
+	while (k < N)
+	{//n:# of rows
+		
+
+		for (int i = 0; i < n; i++) //i represents the x component being estimated
+		{
+			sum = 0.0; //summation for first row
+			if (i == 0)// summation for first row
+					sum += U[i] * xKnot[i+1]; 
+			else if (i>0 && i < n - 1) //summation for central rows
+				sum += L[i - 1] * xKnot[i-1] + U[i] * xKnot[i + 1];
+			else if (i == n-1) //summation for last row
+				sum += L[i - 1] * xKnot[i-1];
+
+			//x[component] ith approximation 
+			x[i] = (-1.0*sum + b[i]) / D[i];
 	
-	/**************/
-	//this is performed here because "matrix" is modified in the rest of the program
-	double A[n][n];
-	double b[n];
-	extractAb(matrix, A, b); //A and b are to be used in 2nd subroutine at bottom
-	/**********/
-//	printMatrix(matrix);
+				if (abs(Ax[i] - b[i]) < tolerance && abs(Ax[i]-b[i]) != 0)
+				{	
+					cout << "Ax[" << i << "] has reached tolerance at iteration " <<k<< endl;
+					tolCount++;
+				}
 
-	double largestCoefTemp; //largest pivot value for a swap
-	double largestCoefficient;
-	int largestRow=0; //collects value of row to swap 
-	bool swap=false; //true if swapping condition met(found larger coefficient in column below pivot)
-	double multiple; //=matrix[z][i]/matrix[i][i], z != 0 used during elimination
-
-	/*STEP 1*/
-	for (int i = 0; i < n-1; i++)    //This loops on the columns  
-	{ 
-		largestCoefTemp = 0; //stores largest column value to compare with others
-		/*STEP 2*/													
-		//search column for largest value in order to know what row to swap				
-		for (int p=i; p < n; p++) //p= 0 : number of rows
-		{
-			//cout << "asdfa" << endl;
-			if (fabs(matrix[p][i]) > fabs(matrix[i][i])) //find larger coefficient in the column than current pivot
-			{
-				//cout << "fabs(matrix[p][i])>fabs(matrix[i][i])" << endl;
-				largestCoefTemp = matrix[p][i];
-				//check if larger than the previous large value found
-				if (fabs(matrix[p][i]) > largestCoefTemp)
-				{
-				//	cout << "fabs(matrix[p][i])>largestCoefTemp" << endl;
-					largestCoefficient = matrix[p][i]; //collects largest column value to compare to others
-					largestRow = p; //row with largest potential pivot
-					swap = true; //must swap when a larger number than current pivot is found
-					multiple = matrix[p][i] / matrix[i][i]; //where p>i
-				}//inner if
-			}//outer if
-		}//for loop 2
-
-		if (largestCoefficient == 0)
-		{
-			cout << "Pivot point is 0. End of algorithm" << endl;
-			exit(0);
-		}
-
-		/*STEP 3*/
-		//For increased numerical stability largest possible pivot is used.*
-		if (swap == true && largestRow!=i) //don't swap if current pivot is largest value in column
-		{
-			swapRows(matrix, largestRow,i);
-			swap = false; //reset
-		}
+		} //for loop
 		
-		if (largestRow == i) //assign row immediately below current pivot if no larger coefficient in column was found
-			largestRow = i + 1;
+		//All components of the iterated x have reached the tolerance difference with b
+		if (tolCount == 3)
+			break;
+
+		//find Ax for a diagonally dominant matrix, A
+		findAx(Ax, x, D, L, U);
+
+		//xKnot will hold this iteration of x approximation for the next iteration
+		for (int j = 0; j < n; j++)
+			xKnot[j] = x[j]; 
 		
-		/*STEP 4*/
-		for (int z = largestRow; z < n; z++)
-		{	/*STEP 5*/
-			multiple = matrix[z][i] / matrix[i][i]; //used to multiply through row that will eliminate one below
-			/*STEP 6*/
-			for (int j = 0; j < m; j++) //This loops through a row
-				matrix[z][j] = matrix[z][j] - multiple*matrix[i][j]; //elimination/ change of coefficients
-		}//for loop 3
-	}//outer for, for loop 1
+		k++;//k is compared to max number of desired iterations (N)
+
+	}//while
 
 
-	if (matrix[n - 1][n - 1] == 0)
-	{
-		cout << "No Solution" << endl;
-		exit(0);
-	}
+	outputSolution(x); //output solution x
 
-	/*Finding solution X*/
-	double x[m-1]; //x values to be found 
-	double sum; //collects sum of product with existing x values and their coefficients
-	x[n-1] = matrix[n - 1][m - 1] / matrix[n - 1][n - 1];//value of last x (x[n-1])
-	for (int i = n - 2; i >= 0; i--)
-	{ //backward substitution
-		sum = 0;
-		for (int j = i + 1; j < n; j++)
-		{
-			sum += matrix[i][j] * x[j]; //sum of rest of equation when other x are plugged in
-		}
-		x[i] = (matrix[i][m - 1] - sum) / matrix[i][i];
-	}
-
-	//output solution X
-	cout << setprecision(10);
-	cout << "X = (";
-	for(int i = 0; i < n; i++)
-	{
-		cout << x[i];
-		if(i<=n-2)
-			cout<< ", ";
-	}
-	cout << ")"<<endl;
-
-
-	/****2nd subroutine****/
-
-
-	double r[n]; //r=b-Ax. Gets r for each row
-	double Ax[n][n]; 
-	double SUM=0;// [n] = { 0, 0, 0 }; //causes problems in arithmetic(+=) if not initialized to 0 before
-
-	for (int i = 0; i < n; i++)//iterates through the rows
-	{
-		SUM = 0;
-		for (int j = 0; j < n; j++)//iterates through each column for a row in order to get SUM
-		{
-			Ax[i][j] = A[i][j] * x[j];
-		//	cout << "Ax: " << Ax[i][j] << endl;
-			SUM += Ax[i][j];
-			
-		}
-		r[i] = SUM - b[i];
-
-		//to avoid the output of -0.0 (for neatness)
-		cout << "r= "<<(r[i] <= 0.0 ? 0.0 : r[i]) << endl;
-	}
 
 	
-
 	return 0;
+
 }
 
-
-
-
-
-
 /*
-	NOTES
-The largest pivot point is used because it results in most accurate numerical output
+U and L store n-1 elements. D, x and b store n elements.
+
+Iteration does not always converge.  A sufficient condition for iteration to Jacobi iteration to converge is that A is strictly diagonally  dominant (the magnitude of the diagonal entry in a row is larger than or equal to the sum of the magnitudes of all the other (non-diagonal) entries in that row).
+*/
+/*
+sum = 0.0;
+if (k == 0) //first row
+sum += -1.0*x[k] * U[i];
+else if (k == n - 1) //last row
+sum += -1.0*L[i - 1] * x[k];
+else//rows in between
+{
+	sum += -1.0* L[i - 1] * x[k];
+	sum += -1.0*x[k] * U[i];
+}
+
+x[k] = (sum + b[k]) / D[k];
+cout << "x(" << k << "): " << x[k] << endl;
+k++;
 */
